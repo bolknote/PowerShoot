@@ -44,7 +44,7 @@ uint16_t get_terminal_width(void) {
 }
 
 void handle_sigint(int sig) {
-    printf("\033[?25h");
+    printf("\033[?25h\033[0m");
     exit(EXIT_SUCCESS);
 }
 
@@ -68,24 +68,26 @@ void initialize_game(uint32_t *position, uint32_t enemies[], uint32_t bullets[])
 }
 
 void print_score(uint32_t score, uint32_t width) {
-    printf("\033[37;41m\033[1;%dH %02d \033[0m", width + 1, score);
+    printf("\033[37;41m\033[%dG %02d \033[0m", width + 1, score);
 }
 
 void draw_game(uint32_t position, uint32_t enemies[], uint32_t bullets[], uint8_t direction, uint32_t score) {
     uint16_t width = get_terminal_width();
 
+    printf("\033[2K");
+
     print_score(score, width);
-    printf("\033[1;%dH%s", position, direction == 1 ? "🚶‍➡️" : "🚶");
+    printf("\033[%dG%s", position, direction == 1 ? "🚶‍➡️" : "🚶");
 
     for (uint32_t i = 0; i < MAX_ENEMIES; i++) {
         if (enemies[i] && enemies[i] < width - 1) {
-            printf("\033[1;%dH👾", enemies[i]);
+            printf("\033[%dG👾", enemies[i]);
         }
     }
 
     for (uint32_t i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i]) {
-            printf("\033[1;%dH💣", bullets[i]);
+            printf("\033[%dG💣", bullets[i]);
         }
     }
 
@@ -224,7 +226,6 @@ void game_loop(void) {
 
             usleep(50000);
         }
-        printf("\033[2J");        
     }
 }
 
