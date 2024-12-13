@@ -14,6 +14,7 @@
 #define MIN_ENEMIES 1
 #define MAX_BULLETS 255
 #define MAX_WIDTH 80
+#define SCORE_WIDTH 5
 
 bool is_ac_power(void) {
     CFTypeRef powerSourceInfo = IOPSCopyPowerSourcesInfo();
@@ -32,12 +33,14 @@ bool is_ac_power(void) {
     return result;
 }
 
-uint32_t get_terminal_width(void) {
+uint16_t get_terminal_width(void) {
     struct winsize w;
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
         exit(EXIT_FAILURE);
     }
-    return w.ws_col - 5 > MAX_WIDTH ? MAX_WIDTH : w.ws_col - 5;
+
+    uint16_t width = w.ws_col - SCORE_WIDTH;
+    return width > MAX_WIDTH ? MAX_WIDTH : width;
 }
 
 void handle_sigint(int sig) {
@@ -69,7 +72,7 @@ void print_score(uint32_t score, uint32_t width) {
 }
 
 void draw_game(uint32_t position, uint32_t enemies[], uint32_t bullets[], uint8_t direction, uint32_t score) {
-    uint32_t width = get_terminal_width();
+    uint16_t width = get_terminal_width();
 
     print_score(score, width);
     printf("\033[1;%dH%s", position, direction == 1 ? "🚶‍➡️" : "🚶");
@@ -111,7 +114,7 @@ void move_bullets(uint32_t bullets[]) {
 }
 
 bool check_collisions(uint32_t enemies[], uint32_t bullets[], uint32_t position, uint32_t *score) {
-    uint32_t width = get_terminal_width();
+    uint16_t width = get_terminal_width();
 
     for (size_t i = 0; i < MAX_ENEMIES; i++) {
         if (enemies[i] && enemies[i] == position) {
