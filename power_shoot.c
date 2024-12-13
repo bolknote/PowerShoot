@@ -77,17 +77,17 @@ void draw_game(uint32_t position, uint32_t enemies[], uint32_t bullets[], uint8_
     printf("\033[2K");
 
     print_score(score, width);
-    printf("\033[%dG%s", position, direction == 1 ? "🚶‍➡️" : "🚶");
+    printf("\033[%dG%s", position + 1, direction == 1 ? "🚶‍➡️" : "🚶");
 
     for (uint32_t i = 0; i < MAX_ENEMIES; i++) {
         if (enemies[i] && enemies[i] < width - 1) {
-            printf("\033[%dG👾", enemies[i]);
+            printf("\033[%dG👾", enemies[i] + 1);
         }
     }
 
     for (uint32_t i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i]) {
-            printf("\033[%dG💣", bullets[i]);
+            printf("\033[%dG💣", bullets[i] + 1);
         }
     }
 
@@ -181,7 +181,7 @@ bool check_if_all_enemies_destroyed(uint32_t enemies[]) {
     return true;
 }
 
-void game_loop(void) {
+uint32_t game_loop(void) {
     bool ac_state = false;
     int8_t direction = 1;
 
@@ -199,21 +199,21 @@ void game_loop(void) {
         }
 
         if (check_collisions(enemies, bullets, position, &score)) {
-            return;
+            return position;
         }        
 
         move_enemies(enemies);
 
         for (size_t i = 0; i < 2; i++) {
             if (check_collisions(enemies, bullets, position, &score)) {
-                return;
+                return position;
             }
 
             ac_state = fire_if_ac(ac_state, bullets, position);
             move_bullets(bullets);
 
             if (check_collisions(enemies, bullets, position, &score)) {
-                return;
+                return position;
             }
 
             if (direction > 0 && check_if_all_enemies_destroyed(enemies)) {
@@ -233,8 +233,6 @@ int main(void) {
     signal(SIGINT, handle_sigint);
     printf("\033[?25l");
 
-    game_loop();
-
-    printf("\033[?25h");
+    printf("\033[?25h\033[%dG🪦", game_loop());
     return 0;
 }
