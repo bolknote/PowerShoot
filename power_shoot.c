@@ -16,6 +16,15 @@
 #define MAX_WIDTH 80
 #define SCORE_WIDTH 5
 
+typedef struct {
+    uint32_t position;
+    uint32_t enemies[MAX_ENEMIES];
+    uint32_t bullets[MAX_BULLETS];
+    uint32_t score;
+    int8_t direction;
+    bool ac_state;
+} GameState;
+
 bool is_ac_power(void) {
     CFTypeRef powerSourceInfo = IOPSCopyPowerSourcesInfo();
     if (powerSourceInfo == NULL) {
@@ -48,46 +57,51 @@ void handle_sigint(int sig) {
     exit(EXIT_SUCCESS);
 }
 
-void generate_enemies(uint32_t enemies[]) {
+void generate_enemies(GameState *ctx) {
     size_t num_enemies = (rand() % (MAX_ENEMIES - MIN_ENEMIES + 1)) + MIN_ENEMIES;
+    uint16_t width = get_terminal_width();
 
     for (size_t i = 0; i < MAX_ENEMIES; i++) {
-        enemies[i] = i < num_enemies ? get_terminal_width() + i * 5 : 0;
+        ctx->enemies[i] = i < num_enemies ? width + i * 5 : 0;
     }
 }
 
-void initialize_game(uint32_t *position, uint32_t enemies[], uint32_t bullets[]) {
+void initialize_game(GameState *ctx) {
     srand(time(NULL));
 
-    *position = 0;
-    generate_enemies(enemies);
+    ctx->position = 0;
+    generate_enemies(ctx);
 
     for (size_t i = 0; i < MAX_BULLETS; i++) {
-        bullets[i] = 0;
+        ctx->bullets[i] = 0;
     }
+
+    ctx->ac_state = false;
+    ctx->direction = 1;
+    ctx->score = 0;
 }
 
-void print_score(uint32_t score, uint32_t width) {
-    printf("\033[37;41m\033[%dG %02d \033[0m", width + 1, score);
+void print_score(GameState *ctx, uint32_t width) {
+    printf("\033[37;41m\033[%dG %02d \033[0m", width + 1, ctx->score);
 }
 
-void draw_game(uint32_t position, uint32_t enemies[], uint32_t bullets[], uint8_t direction, uint32_t score) {
+void draw_game(GameState *ctx) {
     uint16_t width = get_terminal_width();
 
     printf("\033[2K");
 
-    print_score(score, width);
-    printf("\033[%dG%s", position + 1, direction == 1 ? "🚶‍➡️" : "🚶");
+    print_score(ctx, width);
+    printf("\033[%dG%s", ctx->position + 1, ctx->direction == 1 ? "🚶‍➡️" : "🚶");
 
     for (uint32_t i = 0; i < MAX_ENEMIES; i++) {
-        if (enemies[i] && enemies[i] < width - 1) {
-            printf("\033[%dG👾", enemies[i] + 1);
+        if (ctx->enemies[i] && ctx->enemies[i] < width - 1) {
+            printf("\033[%dG👾", ctx->enemies[i] + 1);
         }
     }
 
     for (uint32_t i = 0; i < MAX_BULLETS; i++) {
-        if (bullets[i]) {
-            printf("\033[%dG💣", bullets[i] + 1);
+        if (ctx->bullets[i]) {
+            printf("\033[%dG💣", ctx->bullets[i] + 1);
         }
     }
 
@@ -95,49 +109,49 @@ void draw_game(uint32_t position, uint32_t enemies[], uint32_t bullets[], uint8_
 }
 
 
-void move_character(uint32_t *position, int8_t direction) {
-    *position = (*position + direction) % get_terminal_width();
+void move_character(GameState *ctx) {
+    ctx->position = (ctx->position + ctx->direction) % get_terminal_width();
 }
 
-void move_enemies(uint32_t enemies[]) {
+void move_enemies(GameState *ctx) {
     for (size_t i = 0; i < MAX_ENEMIES; i++) {
-        if (enemies[i]) {
-            enemies[i]--;
+        if (ctx->enemies[i]) {
+            ctx->enemies[i]--;
         }
     }
 }
 
-void move_bullets(uint32_t bullets[]) {
+void move_bullets(GameState *ctx) {
     for (size_t i = 0; i < MAX_BULLETS; i++) {
-        if (bullets[i]) {
-            bullets[i]++;
+        if (ctx->bullets[i]) {
+            ctx->bullets[i]++;
         }
     }
 }
 
-bool check_collisions(uint32_t enemies[], uint32_t bullets[], uint32_t position, uint32_t *score) {
+bool check_collisions(GameState *ctx) {
     uint16_t width = get_terminal_width();
 
     for (size_t i = 0; i < MAX_ENEMIES; i++) {
-        if (enemies[i] && enemies[i] == position) {
+        if (ctx->enemies[i] && ctx->enemies[i] == ctx->position) {
             return true;
         }
     }
 
     for (size_t i = 0; i < MAX_BULLETS; i++) {
-        if (bullets[i]) {
-            if (bullets[i] >= width) {
-                bullets[i] = 1;
-            } else if (bullets[i] == position) {
+        if (ctx->bullets[i]) {
+            if (ctx->bullets[i] >= width) {
+                ctx->bullets[i] = 1;
+            } else if (ctx->bullets[i] == ctx->position) {
                 return true;
             }
 
             for (size_t j = 0; j < MAX_ENEMIES; j++) {
-                if (enemies[j]) {
-                    if (bullets[i] == enemies[j]) {
-                        enemies[j] = 0;
-                        bullets[i] = 0;
-                        (*score)++;
+                if (ctx->enemies[j]) {
+                    if (ctx->bullets[i] == ctx->enemies[j]) {
+                        ctx->enemies[j] = 0;
+                        ctx->bullets[i] = 0;
+                        ctx->score++;
                         break;
                     }
                 }
@@ -148,81 +162,76 @@ bool check_collisions(uint32_t enemies[], uint32_t bullets[], uint32_t position,
     return false;
 }
 
-void fire(uint32_t bullets[MAX_BULLETS], uint32_t position) {
+void fire(GameState *ctx) {
     for (size_t i = 0; i < MAX_BULLETS; i++) {
-        if (bullets[i] == position + 1) {
+        if (ctx->bullets[i] == ctx->position + 2) {
             return;
         }
     }
 
     for (size_t i = 0; i < MAX_BULLETS; i++) {
-        if (!bullets[i]) {
-            bullets[i] = position + 2;
+        if (!ctx->bullets[i]) {
+            ctx->bullets[i] = ctx->position + 2;
             break;
         }
     }    
 }
 
-bool fire_if_ac(bool prev_state, uint32_t bullets[MAX_BULLETS], uint32_t position) {
-    bool state = is_ac_power();
-    if (state && !prev_state) {
-        fire(bullets, position);
+void fire_if_ac(GameState *ctx) {
+    bool new_state = is_ac_power();
+    if (new_state && !ctx->ac_state) {
+        fire(ctx);
     }
 
-    return state;
+    ctx->ac_state = new_state;
 }
 
-bool check_if_all_enemies_destroyed(uint32_t enemies[]) {
+bool check_if_all_enemies_destroyed(GameState *ctx) {
     for (size_t i = 0; i < MAX_ENEMIES; i++) {
-        if (enemies[i] != 0) {
+        if (ctx->enemies[i] != 0) {
             return false;
         }
     }
     return true;
 }
 
-uint32_t game_loop(void) {
-    bool ac_state = false;
-    int8_t direction = 1;
-
-    uint32_t position, enemies[MAX_ENEMIES], bullets[MAX_BULLETS], score = 0;
-
-    initialize_game(&position, enemies, bullets);
-    draw_game(position, enemies, bullets, direction, score);
+void game_loop(GameState *ctx) {
+    initialize_game(ctx);
+    draw_game(ctx);
 
     for (;;) {
-        move_character(&position, direction);
+        move_character(ctx);
 
-        if (position == 0) {
-            generate_enemies(enemies);
-            direction = 1;
+        if (ctx->position == 0) {
+            generate_enemies(ctx);
+            ctx->direction = 1;
         }
 
-        if (check_collisions(enemies, bullets, position, &score)) {
-            return position;
+        if (check_collisions(ctx)) {
+            return;
         }        
 
-        move_enemies(enemies);
+        move_enemies(ctx);
 
         for (size_t i = 0; i < 2; i++) {
-            if (check_collisions(enemies, bullets, position, &score)) {
-                return position;
+            if (check_collisions(ctx)) {
+                return;
             }
 
-            ac_state = fire_if_ac(ac_state, bullets, position);
-            move_bullets(bullets);
+            fire_if_ac(ctx);
+            move_bullets(ctx);
 
-            if (check_collisions(enemies, bullets, position, &score)) {
-                return position;
+            if (check_collisions(ctx)) {
+                return;
             }
 
-            if (direction > 0 && check_if_all_enemies_destroyed(enemies)) {
-                if (position < get_terminal_width() / 2) {
-                    direction = -1;
+            if (ctx->direction > 0 && check_if_all_enemies_destroyed(ctx)) {
+                if (ctx->position < get_terminal_width() / 2) {
+                    ctx->direction = -1;
                 }
             }
 
-            draw_game(position, enemies, bullets, direction, score);
+            draw_game(ctx);
 
             usleep(50000);
         }
@@ -230,9 +239,13 @@ uint32_t game_loop(void) {
 }
 
 int main(void) {
+    GameState ctx;
+
     signal(SIGINT, handle_sigint);
     printf("\033[?25l");
 
-    printf("\033[?25h\033[%dG🪦", game_loop());
+    game_loop(&ctx);
+
+    printf("\033[?25h\033[%dG🪦", ctx.position);
     return 0;
 }
