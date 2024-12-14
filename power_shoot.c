@@ -165,18 +165,21 @@ bool check_collisions(GameState *ctx) {
 }
 
 void fire(GameState *ctx) {
+    uint32_t *pos = NULL;
+
     for (size_t i = 0; i < MAX_BULLETS; i++) {
         if (ctx->bullets[i] == ctx->position + 2) {
             return;
         }
+
+        if (pos == NULL && !ctx->bullets[i]) {
+            pos = &ctx->bullets[i];
+        }
     }
 
-    for (size_t i = 0; i < MAX_BULLETS; i++) {
-        if (!ctx->bullets[i]) {
-            ctx->bullets[i] = ctx->position + 2;
-            break;
-        }
-    }    
+    if (pos != NULL) {
+        *pos = ctx->position + 2;
+    }
 }
 
 void fire_if_ac(GameState *ctx) {
