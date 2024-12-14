@@ -93,7 +93,11 @@ void draw_game(GameState *ctx) {
     printf("\033[2K");
 
     print_score(ctx, width);
-    printf("\033[%dG%s", ctx->position + 1, ctx->direction == 1 ? "🚶‍➡️" : "🚶");
+
+    const char *person[] = {"🚶‍➡️", "🏃‍➡️", "🚶" , "🏃‍"};
+    size_t index = (ctx->position & 1) + (2 + ~ctx->direction);
+
+    printf("\033[%dG%s", ctx->position + 1, person[index]);
 
     for (uint32_t i = 0; i < MAX_ENEMIES; i++) {
         if (ctx->enemies[i] && ctx->enemies[i] < width - 1) {
