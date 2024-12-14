@@ -38,7 +38,9 @@ bool is_ac_power(void) {
     }
 
     bool result = CFStringCompare(powerSourceType, CFSTR(kIOPMACPowerKey), 0) == kCFCompareEqualTo;
+    CFRelease(powerSourceType);
     CFRelease(powerSourceInfo);
+
     return result;
 }
 
